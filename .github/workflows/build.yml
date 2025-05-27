@@ -1,0 +1,72 @@
+name: C++ CI + DEB Packaging
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v3
+
+      - name: 🛠 Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y cmake g++ make dpkg-dev
+
+      - name: 🧱 Configure project with CMake
+        run: cmake -B build
+
+      - name: 🏗 Build project
+        run: cmake --build build
+
+      - name: 🧪 Run unit tests
+        run: ctest --test-dir build
+
+      - name: 📦 Build .deb package
+        run: |
+          mkdir -p package/usr/local/bin
+          cp build/BusinessApp package/usr/local/bin/
+          mkdir -p package/DEBIAN
+          cat <<EOF > package/DEBIAN/control
+          Package: business-mediator
+          Version: 1.0.0
+          Section: base
+          Priority: optional
+          Architecture: amd64
+          Maintainer: Your Name <you@example.com>
+          Description: A business mediator pattern example in C++
+          EOF
+          dpkg-deb --build package business-mediator.deb
+
+      - name: 📤 Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: business-mediator-deb
+          path: business-mediator.deb
+
+  release:
+    needs: build-and-package
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: ⬇️ Download .deb artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: business-mediator-deb
+          path: ./
+
+      - name: 📦 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: "Release ${{ github.run_number }}"
+          tag_name: "v1.${{ github.run_number }}"
+          files: business-mediator.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
