@@ -1,0 +1,1 @@
+<Split from user full code, Restaurant class>
